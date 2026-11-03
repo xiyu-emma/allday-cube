@@ -278,13 +278,47 @@ function init3DCube() {
   cubeEl.appendChild(ring);
 }
 
+// Palette & 2x2 Quadrant Selector Upright Display Setup
+// (Display order: ADP, ANNIE, TARZZAN, BAILEY, WOOCHAN, YOUNGSEO)
+const PALETTE_ORDER = ['A', 'N', 'T', 'B', 'W', 'Y'];
+const PALETTE_ICON_ROT = {
+  A: 0,
+  N: 90,   // ANNIE: rotated 90 deg right (CW) to appear upright
+  T: 0,
+  B: 180,  // BAILEY: rotated 180 deg to appear upright
+  W: 180,  // WOOCHAN: rotated 180 deg to appear upright
+  Y: -90   // YOUNGSEO: rotated 90 deg left (CCW) to appear upright
+};
+
 /**
- * Find which sticker (0..23) carries `code` and quadrant `q`, or -1 if unused.
+ * Convert a visual 2x2 grid slot `vQ` (0=TL, 1=TR, 2=BL, 3=BR in the upright 2x2 selector)
+ * into the underlying image quadrant `imgQ` (0..3 in `img/*.png`).
  */
-function findUsedSlot(code, q, excludeS = -1) {
+function visualQuadToImgQuad(code, vQ) {
+  const rot = ((PALETTE_ICON_ROT[code] || 0) % 360 + 360) % 360;
+  if (rot === 90)  return [2, 0, 3, 1][vQ];
+  if (rot === 180) return [3, 2, 1, 0][vQ];
+  if (rot === 270) return [1, 3, 0, 2][vQ];
+  return vQ;
+}
+
+/**
+ * Convert an underlying image quadrant `imgQ` (0..3) back to the visual 2x2 grid slot `vQ` (0..3).
+ */
+function imgQuadToVisualQuad(code, imgQ) {
+  for (let vQ = 0; vQ < 4; vQ++) {
+    if (visualQuadToImgQuad(code, vQ) === imgQ) return vQ;
+  }
+  return imgQ;
+}
+
+/**
+ * Find which sticker (0..23) carries `code` and underlying image quadrant `imgQ`, or -1 if unused.
+ */
+function findUsedSlot(code, imgQ, excludeS = -1) {
   for (let s = 0; s < 24; s++) {
     if (s === excludeS) continue;
-    if (state[s] === code && stickerQuad[s] === q) {
+    if (state[s] === code && stickerQuad[s] === imgQ) {
       return s;
     }
   }
@@ -292,21 +326,21 @@ function findUsedSlot(code, q, excludeS = -1) {
 }
 
 /**
- * Pick the first unused quadrant (0..3) of member `code`. If all 4 are used, returns 0.
+ * Pick the first unused underlying image quadrant (in visual order 0..3) of member `code`.
  */
 function pickNextUnusedQuad(code) {
-  for (let q = 0; q < 4; q++) {
-    if (findUsedSlot(code, q) === -1) return q;
+  for (let vQ = 0; vQ < 4; vQ++) {
+    const imgQ = visualQuadToImgQuad(code, vQ);
+    if (findUsedSlot(code, imgQ) === -1) return imgQ;
   }
-  return 0;
+  return visualQuadToImgQuad(code, 0);
 }
 
 /**
- * Place member `code` with 1/4 piece `q` onto cube sticker `s` (with foolproof duplicate prevention).
- * Never overwrites the user's chosen `q`! If all 3 stickers of this corner form a valid cubie,
- * only auto-aligns the 3D rotation angle (`stickerRot`) of this sticker.
+ * Place member `code` with underlying image quadrant `imgQ` onto cube sticker `s`
+ * (with foolproof duplicate prevention and initial upright rotation matching the 2x2 selector).
  */
-function placePieceOnSticker(s, code, q) {
+function placePieceOnSticker(s, code, imgQ) {
   if (mode !== 'edit') return;
   if (KEYCHAIN_STICKERS.has(s)) {
     selectSticker(s);
@@ -316,7 +350,7 @@ function placePieceOnSticker(s, code, q) {
 
   // Foolproof check: If this exact 1/4 piece of `code` is already placed on another non-keychain slot,
   // move it from that old slot to this new slot so a 1/4 piece is never duplicated!
-  const prevSlot = findUsedSlot(code, q, s);
+  const prevSlot = findUsedSlot(code, imgQ, s);
   if (prevSlot !== -1) {
     if (KEYCHAIN_STICKERS.has(prevSlot)) {
       showMsg(`${COLOR_NAME[code]} 的該部位已固定在左下後方吊飾角塊上，請選擇其他部位！`, true);
@@ -329,8 +363,9 @@ function placePieceOnSticker(s, code, q) {
   }
 
   state[s] = code;
-  stickerQuad[s] = q;
-  stickerRot[s] = 0;
+  stickerQuad[s] = imgQ;
+  // Set initial rotation so the piece lands on the cube in the same upright orientation as the 2x2 selector
+  stickerRot[s] = ((PALETTE_ICON_ROT[code] || 0) % 360 + 360) % 360;
 
   // Advance brushQuad to next unused quadrant of `brush` for convenience
   brushQuad = pickNextUnusedQuad(brush);
@@ -384,24 +419,28 @@ function updateQuadUI() {
   const nameEl = $('quadMemberName');
   if (nameEl) nameEl.textContent = COLOR_NAME[code] || '—';
 
-  // Determine which quadrant is active in the 2x2 grid
-  const activeQ = (selectedSticker != null && state[selectedSticker] === code && stickerQuad[selectedSticker] != null)
+  // Determine which underlying image quadrant is active
+  const activeImgQ = (selectedSticker != null && state[selectedSticker] === code && stickerQuad[selectedSticker] != null)
     ? stickerQuad[selectedSticker]
     : brushQuad;
+  const activeVQ = imgQuadToVisualQuad(code, activeImgQ);
+  const iconRot = ((PALETTE_ICON_ROT[code] || 0) % 360 + 360) % 360;
 
   document.querySelectorAll('.qbtn').forEach(btn => {
-    const q = +btn.dataset.q;
-    const qR = q >> 1, qC = q & 1;
+    const vQ = +btn.dataset.q;
+    const imgQ = visualQuadToImgQuad(code, vQ);
+    const qR = imgQ >> 1, qC = imgQ & 1;
     const icon = btn.querySelector('i');
     if (icon && LOGOS[code]) {
       icon.style.backgroundImage = `url(${LOGOS[code].img})`;
       icon.style.backgroundSize = '200% 200%';
       icon.style.backgroundPosition = `${qC * 100}% ${qR * 100}%`;
+      icon.style.transform = iconRot ? `rotate(${iconRot}deg)` : '';
     }
-    const usedAt = findUsedSlot(code, q);
+    const usedAt = findUsedSlot(code, imgQ);
     const isUsedElsewhere = usedAt !== -1;
     btn.classList.toggle('used', isUsedElsewhere);
-    btn.classList.toggle('active', q === activeQ);
+    btn.classList.toggle('active', vQ === activeVQ);
   });
 
   const deg = (selectedSticker != null ? stickerRot[selectedSticker] : 0) || 0;
@@ -409,13 +448,14 @@ function updateQuadUI() {
   if (degLabel) degLabel.textContent = `${deg}°`;
 }
 
-function setQuad(q) {
+function setQuad(vQ) {
   if (mode !== 'edit') return;
-  brushQuad = q;
+  const imgQ = visualQuadToImgQuad(brush, vQ);
+  brushQuad = imgQ;
 
   // If a non-keychain sticker is currently selected, apply this 1/4 piece to it
   if (selectedSticker != null && !KEYCHAIN_STICKERS.has(selectedSticker)) {
-    placePieceOnSticker(selectedSticker, brush, q);
+    placePieceOnSticker(selectedSticker, brush, imgQ);
     return;
   }
   updateQuadUI();
@@ -456,16 +496,18 @@ function clearSelectedCell() {
 // Drag-and-Drop 1/4 Puzzle Pieces onto 3D Cube Stickers
 function initPieceDragAndDrop() {
   document.querySelectorAll('.qbtn').forEach(btn => {
-    const q = +btn.dataset.q;
+    const vQ = +btn.dataset.q;
 
     btn.addEventListener('pointerdown', e => {
       if (mode !== 'edit') return;
       e.preventDefault();
       const startX = e.clientX;
       const startY = e.clientY;
+      const imgQ = visualQuadToImgQuad(brush, vQ);
 
       pieceDrag = {
-        q,
+        vQ,
+        imgQ,
         code: brush,
         startX,
         startY,
@@ -485,9 +527,11 @@ function initPieceDragAndDrop() {
       pieceDrag.dragging = true;
       const ghost = document.createElement('div');
       ghost.className = 'drag-ghost';
-      const qR = pieceDrag.q >> 1, qC = pieceDrag.q & 1;
+      const qR = pieceDrag.imgQ >> 1, qC = pieceDrag.imgQ & 1;
+      const iconRot = ((PALETTE_ICON_ROT[pieceDrag.code] || 0) % 360 + 360) % 360;
       ghost.style.backgroundImage = `url(${LOGOS[pieceDrag.code].img})`;
       ghost.style.backgroundPosition = `${qC * 100}% ${qR * 100}%`;
+      if (iconRot) ghost.style.transform = `rotate(${iconRot}deg)`;
       document.body.appendChild(ghost);
       pieceDrag.ghost = ghost;
     }
@@ -515,7 +559,7 @@ function initPieceDragAndDrop() {
 
   const finishPieceDrag = e => {
     if (!pieceDrag) return;
-    const { q, code, dragging, ghost, hoverSticker } = pieceDrag;
+    const { vQ, imgQ, code, dragging, ghost, hoverSticker } = pieceDrag;
     pieceDrag = null;
 
     if (ghost) ghost.remove();
@@ -523,11 +567,11 @@ function initPieceDragAndDrop() {
 
     if (dragging) {
       if (hoverSticker != null) {
-        placePieceOnSticker(hoverSticker, code, q);
+        placePieceOnSticker(hoverSticker, code, imgQ);
       }
     } else {
       // Treated as a click on the 1/4 quadrant button
-      setQuad(q);
+      setQuad(vQ);
     }
   };
 
@@ -572,17 +616,6 @@ function renderAllStickers() {
     renderSticker(s);
   }
 }
-
-// Palette Setup (Display order: ADP, ANNIE, TARZZAN, BAILEY, WOOCHAN, YOUNGSEO)
-const PALETTE_ORDER = ['A', 'N', 'T', 'B', 'W', 'Y'];
-const PALETTE_ICON_ROT = {
-  A: 0,
-  N: 90,   // ANNIE: rotated another 180 deg from -90 -> +90 deg
-  T: 0,
-  B: -180, // BAILEY: rotated 180 deg
-  W: 180,  // WOOCHAN: rotated 180 deg
-  Y: -90   // YOUNGSEO: rotated 90 deg left (CCW)
-};
 
 function initPalette() {
   const paletteEl = $('palette');
