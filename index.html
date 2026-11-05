@@ -1,134 +1,136 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#08080a">
-<title>ALLDAY CUBE · 2×2 魔術方塊解法</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Noto+Sans+TC:wght@300;400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#08080a">
+  <title>ALLDAY CUBE · 魔術方塊解法 for DAYONE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Noto+Sans+TC:wght@300;400;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-<div class="bg-glow"></div>
+  <div class="bg-glow"></div>
 
-<!-- Intro Landing View -->
-<section class="intro-screen" id="introScreen">
-  <span class="eyebrow">ALLDAY PROJECT · 2×2 KEYCHAIN CUBE</span>
-  <h1 class="intro-title">ALLDAY <span>CUBE</span></h1>
-  <p class="intro-desc">
-    專為 ALLDAY PROJECT 吊飾魔術方塊打造的 3D 視覺復原指南。<br>
-    以左下後方的吊飾角塊作為固定定位點，將手上方塊的 1/4 圖案拼入，即可透過 3D 動畫一步一步轉回完整六面。
-  </p>
+  <!-- Intro Landing View -->
+  <section class="intro-screen" id="introScreen">
+    <span class="eyebrow">ALLDAY PROJECT · CRASH ALBUM KEYCHAIN CUBE</span>
+    <h1 class="intro-title">ALLDAY <span>CUBE</span></h1>
 
-  <div class="intro-stage" id="introStage" role="button" tabindex="0" aria-label="點擊魔術方塊進入開始解題">
-    <div class="cube intro-cube" id="introCube"></div>
+    <div class="intro-stage" id="introStage" role="button" tabindex="0" aria-label="點擊魔術方塊進入開始解題">
+      <div class="cube intro-cube" id="introCube"></div>
+    </div>
+
+    <p class="intro-cta" id="introCta">點擊上方魔術方塊進入</p>
+    <p class="intro-members">ADP · ANNIE · TARZZAN · BAILEY · WOOCHAN · YOUNGSEO</p>
+  </section>
+
+  <!-- Main Workspace View (hidden until user clicks the intro cube) -->
+  <div id="appWrap" class="hidden">
+    <header>
+      <span class="eyebrow">ALLDAY PROJECT · FAN MADE</span>
+      <h1>ALLDAY <span>CUBE</span></h1>
+    </header>
+
+    <main class="panel">
+      <!-- instructions -->
+      <div class="tip" id="tip">
+        <b>手持定位：</b>請找到<b>接吊飾的那個角塊</b>，放在<b>左下後方</b>拿好（鍊子朝左下方垂下）。<br>
+        選下方成員 → 將對應的 <b>1/4 拼圖格拖曳（或點選）</b>放到 3D 方塊上，<b>再點一下方塊格子即可旋轉 90°</b>。
+        <details class="guide-detail">
+          <summary>對照六面位置說明</summary>
+          <p>
+            ・上：<b>ADP</b><br>
+            ・前（面向你）：<b>TARZZAN</b><br>
+            ・右：<b>YOUNGSEO</b><br>
+            ・下（底面）：<b>WOOCHAN</b><br>
+            ・左：<b>ANNIE</b><br>
+            ・後（背面）：<b>BAILEY</b><br>
+            ※ 解題全程左下後方吊飾角塊固定不動，只需轉動上層、右層與前面。
+          </p>
+        </details>
+      </div>
+
+      <!-- 3D cube -->
+      <div class="stage" id="stage">
+        <div class="cube" id="cube"></div>
+      </div>
+
+      <!-- edit mode -->
+      <div id="editBox">
+        <div class="edit-topbar">
+          <div class="edit-tag">方塊圖案填入模式</div>
+          <button class="bgm-btn" id="btnBgm" type="button" title="開啟 / 關閉背景音樂 (bg.mp3)">背景音樂：開</button>
+        </div>
+
+        <!-- Quadrant & Rotation Selector for currently selected member / cell -->
+        <div class="quad-box" id="quadBox">
+          <div class="quad-header">
+            <span>將 <b>1/4 拼圖格拖曳</b>（或點選）填入方塊，<b>點一下已填的方塊格可旋轉 90°</b>：</span>
+            <span class="quad-member" id="quadMemberName">TARZZAN</span>
+          </div>
+          <div class="quad-controls">
+            <div class="quad-grid" id="quadGrid">
+              <button class="qbtn active" data-q="0" title="左上角部位（可拖曳至方塊）"><i></i></button>
+              <button class="qbtn" data-q="1" title="右上角部位（可拖曳至方塊）"><i></i></button>
+              <button class="qbtn" data-q="2" title="左下角部位（可拖曳至方塊）"><i></i></button>
+              <button class="qbtn" data-q="3" title="右下角部位（可拖曳至方塊）"><i></i></button>
+            </div>
+            <div class="rot-btns">
+              <button class="ghost rot-btn" id="btnRotCW" title="順時針轉 90°">↻ 順轉 90°</button>
+              <button class="ghost rot-btn" id="btnRotCCW" title="逆時針轉 90°">↺ 逆轉</button>
+              <button class="ghost rot-btn" id="btnClearCell" title="清除目前選取的這格">✕ 清除此格</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="palette" id="palette"></div>
+
+        <div class="status" id="status"></div>
+        <div class="actions">
+          <button class="ghost" id="btnClear">清空重填</button>
+          <button class="ghost" id="btnSolved">完成狀態</button>
+          <button class="ghost" id="btnRandom">隨機打亂</button>
+        </div>
+        <button class="primary" id="btnSolve">開始教我轉回去</button>
+      </div>
+
+      <!-- solve mode -->
+      <div id="solveBox" class="hidden">
+        <div class="progress" id="moves"></div>
+        <div class="step-card">
+          <div class="step-no" id="stepNo"></div>
+          <div class="step-move" id="stepMove"></div>
+          <div class="step-desc" id="stepDesc"></div>
+          <div class="cheer-wrap">
+            <div class="cheer" id="cheer"></div>
+            <button class="voice-btn" id="btnVoice" title="朗讀英文歌詞語音">語音</button>
+          </div>
+        </div>
+        <div class="controls">
+          <button class="ghost" id="btnPrev">◀<span> 上一步</span></button>
+          <button class="ghost" id="btnReplay">⟲<span> 再看一次</span></button>
+          <button class="primary next" id="btnNext">下一步 ▶</button>
+        </div>
+        <div class="actions">
+          <button class="ghost" id="btnPlay">▶ 自動播放</button>
+          <button class="ghost" id="btnFirst">⏮ 從頭</button>
+          <button class="ghost" id="btnEdit">重新輸入</button>
+        </div>
+      </div>
+
+      <p class="msg" id="msg"></p>
+    </main>
+
+    <footer>Fan-made tribute to ALLDAY PROJECT · @dawn_pawm製作</footer>
   </div>
 
-  <p class="intro-cta" id="introCta">點擊上方魔術方塊進入</p>
-  <p class="intro-members">ADP · ANNIE · TARZZAN · BAILEY · WOOCHAN · YOUNGSEO</p>
-</section>
-
-<!-- Main Workspace View (hidden until user clicks the intro cube) -->
-<div id="appWrap" class="hidden">
-  <header>
-    <span class="eyebrow">ALLDAY PROJECT · FAN MADE</span>
-    <h1>ALLDAY <span>CUBE</span></h1>
-  </header>
-
-  <main class="panel">
-    <!-- instructions -->
-    <div class="tip" id="tip">
-      <b>手持定位：</b>請找到<b>接吊飾的那個角塊</b>，放在<b>左下後方</b>拿好（鍊子朝左下方垂下）。<br>
-      選下方成員 → 將對應的 <b>1/4 拼圖格拖曳（或點選）</b>放到 3D 方塊上，<b>再點一下方塊格子即可旋轉 90°</b>。
-      <details class="guide-detail">
-        <summary>對照六面位置說明</summary>
-        <p>
-          ・上：<b>ADP</b><br>
-          ・前（面向你）：<b>TARZZAN</b><br>
-          ・右：<b>YOUNGSEO</b><br>
-          ・下（底面）：<b>WOOCHAN</b><br>
-          ・左：<b>ANNIE</b><br>
-          ・後（背面）：<b>BAILEY</b><br>
-          ※ 解題全程左下後方吊飾角塊固定不動，只需轉動上層、右層與前面。
-        </p>
-      </details>
-    </div>
-
-    <!-- 3D cube -->
-    <div class="stage" id="stage"><div class="cube" id="cube"></div></div>
-
-    <!-- Quick Views -->
-    <div class="views" id="views">
-      <button class="chip on" data-view="front">看正面<small>上・前・右</small></button>
-      <button class="chip" data-view="back">看背面<small>下・後・左</small></button>
-      <button class="chip" data-view="top">看上面<small>ADP</small></button>
-      <button class="chip" data-view="bottom">看底面<small>WOOCHAN</small></button>
-    </div>
-
-    <!-- edit mode -->
-    <div id="editBox">
-      <div class="palette" id="palette"></div>
-
-      <!-- Quadrant & Rotation Selector for currently selected member / cell -->
-      <div class="quad-box" id="quadBox">
-        <div class="quad-header">
-          <span>將 <b>1/4 拼圖格拖曳</b>（或點選）填入方塊，<b>點一下已填的方塊格可旋轉 90°</b>：</span>
-          <span class="quad-member" id="quadMemberName">TARZZAN</span>
-        </div>
-        <div class="quad-controls">
-          <div class="quad-grid" id="quadGrid">
-            <button class="qbtn active" data-q="0" title="左上角部位（可拖曳至方塊）"><i></i></button>
-            <button class="qbtn" data-q="1" title="右上角部位（可拖曳至方塊）"><i></i></button>
-            <button class="qbtn" data-q="2" title="左下角部位（可拖曳至方塊）"><i></i></button>
-            <button class="qbtn" data-q="3" title="右下角部位（可拖曳至方塊）"><i></i></button>
-          </div>
-          <div class="rot-btns">
-            <button class="ghost rot-btn" id="btnRotCW" title="順時針轉 90°">↻ 順轉 90°</button>
-            <button class="ghost rot-btn" id="btnRotCCW" title="逆時針轉 90°">↺ 逆轉</button>
-            <span class="rot-deg" id="rotDegLabel">0°</span>
-            <button class="ghost rot-btn" id="btnClearCell" title="清除目前選取的這格">✕ 清除此格</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="status" id="status"></div>
-      <div class="actions">
-        <button class="ghost" id="btnClear">清空重填</button>
-        <button class="ghost" id="btnSolved">完成狀態</button>
-        <button class="ghost" id="btnRandom">隨機打亂</button>
-      </div>
-      <button class="primary" id="btnSolve">開始教我轉回去</button>
-    </div>
-
-    <!-- solve mode -->
-    <div id="solveBox" class="hidden">
-      <div class="progress" id="moves"></div>
-      <div class="step-card">
-        <div class="step-no" id="stepNo"></div>
-        <div class="step-move" id="stepMove"></div>
-        <div class="step-desc" id="stepDesc"></div>
-        <div class="cheer" id="cheer"></div>
-      </div>
-      <div class="controls">
-        <button class="ghost" id="btnPrev">◀<span> 上一步</span></button>
-        <button class="ghost" id="btnReplay">⟲<span> 再看一次</span></button>
-        <button class="primary next" id="btnNext">下一步 ▶</button>
-      </div>
-      <div class="actions">
-        <button class="ghost" id="btnPlay">▶ 自動播放</button>
-        <button class="ghost" id="btnFirst">⏮ 從頭</button>
-        <button class="ghost" id="btnEdit">重新輸入</button>
-      </div>
-    </div>
-
-    <p class="msg" id="msg"></p>
-  </main>
-
-  <footer>Fan-made tribute to ALLDAY PROJECT · 非官方粉絲製作</footer>
-</div>
-
-<script src="solver.js"></script>
-<script src="app.js"></script>
+  <script src="solver.js"></script>
+  <script src="app.js"></script>
 </body>
+
 </html>

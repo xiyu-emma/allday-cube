@@ -22,19 +22,67 @@ const INV_MOVE = {
   F: "F'", "F'": 'F', F2: 'F2'
 };
 
-// 3D View Angles
-let rx = -22, ry = 35; // Default front view (Top, Front, Right)
-let drag = null;
+// 3D View Angles & Quaternion Free-Rotation Setup
+// Enables seamless 360-degree rotation across all faces without gimbal lock or angle clamping
+function quatMultiply(q1, q2) {
+  const [w1, x1, y1, z1] = q1;
+  const [w2, x2, y2, z2] = q2;
+  return [
+    w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
+    w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+    w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
+    w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
+  ];
+}
+
+function quatNormalize(q) {
+  const len = Math.hypot(q[0], q[1], q[2], q[3]);
+  if (len < 1e-9) return [1, 0, 0, 0];
+  return [q[0] / len, q[1] / len, q[2] / len, q[3] / len];
+}
+
+function eulerToQuat(rxDeg, ryDeg) {
+  const ax = rxDeg * Math.PI / 180;
+  const ay = ryDeg * Math.PI / 180;
+  const qx = [Math.cos(ax / 2), Math.sin(ax / 2), 0, 0];
+  const qy = [Math.cos(ay / 2), 0, Math.sin(ay / 2), 0];
+  return quatNormalize(quatMultiply(qx, qy));
+}
+
+function quatToMatrix3d(q) {
+  const [w, x, y, z] = q;
+  const x2 = x + x, y2 = y + y, z2 = z + z;
+  const xx = x * x2, xy = x * y2, xz = x * z2;
+  const yy = y * y2, yz = y * z2, zz = z * z2;
+  const wx = w * x2, wy = w * y2, wz = w * z2;
+
+  const m00 = 1 - (yy + zz);
+  const m01 = xy - wz;
+  const m02 = xz + wy;
+
+  const m10 = xy + wz;
+  const m11 = 1 - (xx + zz);
+  const m12 = yz - wx;
+
+  const m20 = xz - wy;
+  const m21 = yz + wx;
+  const m22 = 1 - (xx + yy);
+
+  return `matrix3d(${m00.toFixed(6)}, ${m10.toFixed(6)}, ${m20.toFixed(6)}, 0, ${m01.toFixed(6)}, ${m11.toFixed(6)}, ${m21.toFixed(6)}, 0, ${m02.toFixed(6)}, ${m12.toFixed(6)}, ${m22.toFixed(6)}, 0, 0, 0, 0, 1)`;
+}
+
+const DEFAULT_QUAT = eulerToQuat(-22, 35); // Default front view (Top, Front, Right)
+let cubeQuat = [...DEFAULT_QUAT];
 let moved = false;
 
 // Drag-and-drop state for 1/4 puzzle pieces
 let pieceDrag = null;
 
 const VIEW_PRESETS = {
-  front:  { rx: -22, ry: 35 },   // 上・前・右
-  back:   { rx: 22,  ry: 215 },  // 下・後・左
-  top:    { rx: -85, ry: 0 },    // 正上面 ADP
-  bottom: { rx: 85,  ry: 0 },    // 正底面 WOOCHAN
+  front: { rx: -22, ry: 35 },   // 上・前・右
+  back: { rx: 22, ry: 215 },  // 下・後・左
+  top: { rx: -85, ry: 0 },    // 正上面 ADP
+  bottom: { rx: 85, ry: 0 },    // 正底面 WOOCHAN
 };
 
 // Intrinsic "Up" vectors for each face in 3D
@@ -126,13 +174,13 @@ function syncCornerGeometry(corner) {
 
 // Descriptions & Visual Icons (no emojis)
 const DESC = {
-  U:  '把最上面那一層【往左轉】1/4 圈（90°）',
+  U: '把最上面那一層【往左轉】1/4 圈（90°）',
   "U'": '把最上面那一層【往右轉】1/4 圈（90°）',
   U2: '把最上面那一層轉半圈（180°）',
-  R:  '把右邊那一層【往上推】1/4 圈（遠離你）',
+  R: '把右邊那一層【往上推】1/4 圈（遠離你）',
   "R'": '把右邊那一層【往下拉】1/4 圈（靠近你）',
   R2: '把右邊那一層轉半圈（180°）',
-  F:  '把面向你的那一面【順時針】轉 1/4 圈',
+  F: '把面向你的那一面【順時針】轉 1/4 圈',
   "F'": '把面向你的那一面【逆時針】轉 1/4 圈',
   F2: '把面向你的那一面轉半圈（180°）',
 };
@@ -143,20 +191,379 @@ const ICON = {
   F: '↻', "F'": '↺', F2: '⟳'
 };
 
-const CHEERS = [
-  'ANNIE: 很好！繼續保持！',
-  'TARZZAN: 節奏抓到了，穩定前進！',
-  'BAILEY: 就是這樣，FAMOUS 等級！',
-  'WOOCHAN: 帥氣，快完成了～',
-  'YOUNGSEO: 你超強的，繼續下一步！',
-  'ALLDAY: Wicked smooth!'
+// ALLDAY PROJECT 2nd EP <CRASH> (2026) English Lyrics Cheers & Audio Snippets
+const DEFAULT_CHEERS = [
+  {
+    id: "c1",
+    member: "ANNIE",
+    song: "DO IT LIKE THIS",
+    lyric: "Dance watch me dance, watch me do my dance!",
+    file: "audio/c1.mp3",
+    src: "audio/DO IT LIKE THIS.mp3",
+    start: 6.9,
+    end: 10.6
+  },
+  {
+    id: "c2",
+    member: "TARZZAN",
+    song: "CRASH",
+    lyric: "I just wanna keep the shots going Blame it on me",
+    file: "audio/c2.mp3",
+    src: "audio/CRASH.mp3",
+    start: 0.4,
+    end: 4.4
+  },
+  {
+    id: "c3",
+    member: "YOUNGSEO",
+    song: "DO IT LIKE THIS",
+    lyric: "They wanna know just how we roll",
+    file: "audio/c3.mp3",
+    src: "audio/DO IT LIKE THIS.mp3",
+    start: 90.1,
+    end: 93.5
+  },
+  {
+    id: "c4",
+    member: "BAILEY",
+    song: "NO LIMIT",
+    lyric: "Pullin' up smooth, but I move quick 불러 봐 price, I'ma match it",
+    file: "audio/c4.mp3",
+    src: "audio/NO LIMIT.mp3",
+    start: 16.9,
+    end: 20
+  },
+  {
+    id: "c5",
+    member: "WOOCHAN",
+    song: "UP ALL NIGHT",
+    lyric: "You know we be coming on sight",
+    file: "audio/c5.mp3",
+    src: "audio/UP ALL NIGHT.mp3",
+    start: 49.4,
+    end: 52.8
+  },
+  {
+    id: "c6",
+    member: "YOUNGSEO",
+    song: "CRASH",
+    lyric: "It's a show now, tear the roof down",
+    file: "audio/c6.mp3",
+    src: "audio/CRASH.mp3",
+    start: 95.1,
+    end: 99.1
+  },
+  {
+    id: "c7",
+    member: "BAILEY",
+    song: "NO LIMIT",
+    lyric: "All day my clique, pull up like this! Step back when we hit 'em with the ",
+    file: "audio/c7.mp3",
+    src: "audio/NO LIMIT.mp3",
+    start: 47.9,
+    end: 51.4
+  },
+  {
+    id: "c8",
+    member: "ANNIE",
+    song: "TALK",
+    lyric: "Running your big mouth since day one Got my day ones running you down all day",
+    file: "audio/c8.mp3",
+    src: "audio/TALK.mp3",
+    start: 32.6,
+    end: 36.3
+  },
+  {
+    id: "c9",
+    member: "WOOCHAN",
+    song: "CRASH",
+    lyric: "I don't need your lo-lo-lo-lo-lo-lo-love",
+    file: "audio/c9.mp3",
+    src: "audio/CRASH.mp3",
+    start: 58.7,
+    end: 62.1
+  },
+  {
+    id: "c10",
+    member: "TARZZAN",
+    song: "DO IT LIKE THIS",
+    lyric: "She can't copy my swag Can't copy my swag (Yeah)",
+    file: "audio/c10.mp3",
+    src: "audio/DO IT LIKE THIS.mp3",
+    start: 71.6,
+    end: 75.5
+  },
+  {
+    id: "c11",
+    member: "TARZZAN",
+    song: "NO LIMIT",
+    lyric: "No limit Make 'em say (Oh)",
+    file: "audio/c11.mp3",
+    src: "audio/NO LIMIT.mp3",
+    start: 103.2,
+    end: 106.7
+  },
+  {
+    id: "c12",
+    member: "WOOCHAN",
+    song: "UP ALL NIGHT",
+    lyric: "Don't stress 불러 let your friends come too, yeah",
+    file: "audio/c12.mp3",
+    src: "audio/UP ALL NIGHT.mp3",
+    start: 18.8,
+    end: 21.6
+  },
+  {
+    id: "c13",
+    member: "YOUNGSEO",
+    song: "CRASH",
+    lyric: "예고 따윈 없이 We crash the party",
+    file: "audio/c13.mp3",
+    src: "audio/CRASH.mp3",
+    start: 12.2,
+    end: 15.1
+  },
+  {
+    id: "c14",
+    member: "WOOCHAN",
+    song: "DO IT LIKE THIS",
+    lyric: "Monday, Tuesday, Friday, do it like this!",
+    file: "audio/c14.mp3",
+    src: "audio/DO IT LIKE THIS.mp3",
+    start: 51.6,
+    end: 55
+  },
+  {
+    id: "c15",
+    member: "BAILEY",
+    song: "UP ALL NIGHT",
+    lyric: "Would you come and waste my time 'til 5 in the morning?",
+    file: "audio/c15.mp3",
+    src: "audio/UP ALL NIGHT.mp3",
+    start: 53,
+    end: 56.2
+  },
+  {
+    id: "c_1793865092293",
+    member: "ALLDAY PROJECT",
+    song: "UP ALL NIGHT",
+    lyric: "°☆::‧(￣▽￣)/‧:‧°☆",
+    file: "audio/c_1793865092293.mp3",
+    src: "audio/UP ALL NIGHT.mp3",
+    start: 158.1,
+    end: 162.3
+  }
 ];
+
+const CHEER_FINISH_DEFAULT = DEFAULT_CHEERS.find(c => c.id === 'c_1793865092293') || DEFAULT_CHEERS[DEFAULT_CHEERS.length - 1];
+
+function getActiveCheers() {
+  try {
+    const saved = localStorage.getItem('allday_custom_cheers');
+    if (saved) {
+      const arr = JSON.parse(saved);
+      if (Array.isArray(arr) && arr.length > 0) return arr;
+    }
+  } catch (e) { }
+  return DEFAULT_CHEERS;
+}
+
+function getFinishCheer() {
+  const cheers = getActiveCheers();
+  try {
+    const savedId = localStorage.getItem('allday_finish_cheer_id');
+    if (savedId) {
+      const found = cheers.find(c => (c.id && c.id === savedId) || c.file === savedId || c.lyric === savedId);
+      if (found) return found;
+    }
+  } catch (e) { }
+  const found = cheers.find(c => c.id === 'c_1793865092293');
+  return found || cheers[cheers.length - 1] || CHEER_FINISH_DEFAULT;
+}
+
+function setFinishCheerId(id) {
+  try {
+    localStorage.setItem('allday_finish_cheer_id', id);
+  } catch (e) { }
+}
+
+let sessionCheers = [];
+
+function prepareSessionCheers(totalSteps) {
+  const finishItem = getFinishCheer();
+  const allCheers = getActiveCheers();
+  // Filter out the finish cheer so other steps feature randomized lyrics from other members!
+  const pool = allCheers.filter(c => (c.id && finishItem.id) ? c.id !== finishItem.id : c.lyric !== finishItem.lyric);
+  const candidates = pool.length > 0 ? pool : allCheers;
+
+  sessionCheers = [];
+  let bag = [];
+
+  for (let i = 0; i < totalSteps; i++) {
+    if (bag.length === 0) {
+      bag = [...candidates];
+      for (let j = bag.length - 1; j > 0; j--) {
+        const k = Math.floor(Math.random() * (j + 1));
+        [bag[j], bag[k]] = [bag[k], bag[j]];
+      }
+    }
+    sessionCheers.push(bag.pop());
+  }
+}
+
+let voiceEnabled = true;
+let currentAudio = null;
+let currentCheerItem = null;
+let stopTimer = null;
+
+function playCheerAudio(item) {
+  if (!voiceEnabled || !item) return;
+
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  if (stopTimer) {
+    clearTimeout(stopTimer);
+    stopTimer = null;
+  }
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+  }
+
+  const audio = new Audio();
+  currentAudio = audio;
+
+  const id = item.id || 'c1';
+  // Candidate sources to try in priority order:
+  // 1. Standalone cut file audio/{id}.wav
+  // 2. Standalone cut file audio/{id}.mp3
+  // 3. Explicit item.file
+  // 4. Full song snippet item.src with timestamps
+  const sources = [
+    ...(item.file ? [{ url: item.file, isCut: true }] : []),
+    { url: `audio/${id}.mp3`, isCut: true },
+    { url: `audio/${id}.wav`, isCut: true },
+    ...(item.src ? [{ url: item.src, isCut: false }] : [])
+  ];
+
+  let srcIdx = 0;
+  function tryNext() {
+    if (srcIdx >= sources.length) {
+      speakText(item.lyric);
+      return;
+    }
+    const cur = sources[srcIdx++];
+    audio.src = cur.url;
+    audio.onerror = tryNext;
+
+    const onReady = () => {
+      if (!cur.isCut && item.start != null) {
+        audio.currentTime = item.start;
+      }
+      audio.play().then(() => {
+        if (!cur.isCut && item.end && item.start) {
+          const dur = Math.max(1000, (item.end - item.start) * 1000);
+          stopTimer = setTimeout(() => {
+            if (currentAudio === audio) {
+              audio.pause();
+              currentAudio = null;
+            }
+          }, dur);
+        }
+      }).catch(err => {
+        tryNext();
+      });
+    };
+
+    if (audio.readyState >= 1) {
+      onReady();
+    } else {
+      audio.addEventListener('loadedmetadata', onReady, { once: true });
+      audio.load();
+    }
+  }
+
+  tryNext();
+}
+
+function speakText(text) {
+  if (!voiceEnabled || !('speechSynthesis' in window) || !text) return;
+  try {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US';
+    u.rate = 1.0;
+    u.pitch = 1.05;
+    window.speechSynthesis.speak(u);
+  } catch (err) { }
+}
 
 function showMsg(text, isError = false) {
   const el = $('msg');
   if (!el) return;
   el.textContent = text;
   el.className = 'msg' + (isError ? ' err' : '');
+}
+
+// ===== Background Music (bg.mp3) for Edit Mode =====
+let bgmAudio = null;
+let bgmEnabled = (() => {
+  try {
+    const saved = localStorage.getItem('allday_bgm_enabled');
+    if (saved === '0') return false;
+  } catch (e) { }
+  return true;
+})();
+
+function initBgm() {
+  if (!bgmAudio) {
+    bgmAudio = new Audio('audio/bg.mp3');
+    bgmAudio.loop = true;
+    bgmAudio.volume = 0.35; // Gentle and comfortable background volume
+  }
+}
+
+function playBgm() {
+  if (!bgmEnabled || mode !== 'edit') return;
+  initBgm();
+  if (bgmAudio && bgmAudio.paused) {
+    bgmAudio.play().catch(() => {
+      // Browser autoplay policy might defer until user gesture
+    });
+  }
+}
+
+function pauseBgm() {
+  if (bgmAudio && !bgmAudio.paused) {
+    bgmAudio.pause();
+  }
+}
+
+function toggleBgm() {
+  bgmEnabled = !bgmEnabled;
+  try {
+    localStorage.setItem('allday_bgm_enabled', bgmEnabled ? '1' : '0');
+  } catch (e) { }
+  updateBgmButton();
+  if (bgmEnabled) {
+    if (mode === 'edit') playBgm();
+  } else {
+    pauseBgm();
+  }
+}
+
+function updateBgmButton() {
+  const btn = $('btnBgm');
+  if (!btn) return;
+  if (bgmEnabled) {
+    btn.className = 'bgm-btn';
+    btn.textContent = '背景音樂：開';
+    btn.setAttribute('aria-pressed', 'true');
+    btn.title = '點擊關閉背景音樂 (bg.mp3)';
+  } else {
+    btn.className = 'bgm-btn off';
+    btn.textContent = '背景音樂：關';
+    btn.setAttribute('aria-pressed', 'false');
+    btn.title = '點擊開啟背景音樂 (bg.mp3)';
+  }
 }
 
 // 3D Cube Constants
@@ -187,9 +594,6 @@ function initIntroCube() {
 
     const el = document.createElement('div');
     el.className = 'cst st';
-    if (KEYCHAIN_STICKERS.has(s)) {
-      el.classList.add('key');
-    }
 
     const pos = [
       g.p[0] * H + g.n[0] * H,
@@ -202,18 +606,14 @@ function initIntroCube() {
     introCubeEl.appendChild(el);
   });
 
-  const ring = document.createElement('div');
-  ring.className = 'keyring';
-  ring.innerHTML = `<span class="chain"></span><span class="loop"></span>`;
-  ring.style.transform = `translate3d(-80px, 80px, -80px)`;
-  introCubeEl.appendChild(ring);
-
   const enterApp = () => {
     const introScreen = $('introScreen');
     const appWrap = $('appWrap');
     if (introScreen) introScreen.classList.add('hidden');
     if (appWrap) appWrap.classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    playBgm();
+    updateBgmButton();
   };
 
   const introStage = $('introStage');
@@ -296,7 +696,7 @@ const PALETTE_ICON_ROT = {
  */
 function visualQuadToImgQuad(code, vQ) {
   const rot = ((PALETTE_ICON_ROT[code] || 0) % 360 + 360) % 360;
-  if (rot === 90)  return [2, 0, 3, 1][vQ];
+  if (rot === 90) return [2, 0, 3, 1][vQ];
   if (rot === 180) return [3, 2, 1, 0][vQ];
   if (rot === 270) return [1, 3, 0, 2][vQ];
   return vQ;
@@ -584,8 +984,8 @@ function renderSticker(s) {
   if (!el) return;
 
   const curState = mode === 'edit' ? state : states[step];
-  const curRot   = mode === 'edit' ? (stickerRot[s] || 0) : statesRot[step][s];
-  const curQuad  = mode === 'edit'
+  const curRot = mode === 'edit' ? (stickerRot[s] || 0) : statesRot[step][s];
+  const curQuad = mode === 'edit'
     ? (stickerQuad[s] != null ? stickerQuad[s] : (s % 4))
     : (statesOrig[step][s] % 4);
   const code = curState ? curState[s] : null;
@@ -689,44 +1089,59 @@ function setCubeTransform(animate = false) {
   const cubeEl = $('cube');
   if (!cubeEl) return;
   cubeEl.classList.toggle('smooth', animate);
-  cubeEl.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+  cubeEl.style.transform = quatToMatrix3d(cubeQuat);
 }
 
 function initViewControls() {
   const stage = $('stage');
+  let isDragging = false;
+  let lastX = 0, lastY = 0;
+  let startX = 0, startY = 0;
 
   stage.addEventListener('pointerdown', e => {
     if (pieceDrag) return;
-    drag = { startX: e.clientX, startY: e.clientY, rx, ry };
+    isDragging = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    startX = e.clientX;
+    startY = e.clientY;
     moved = false;
   });
 
   window.addEventListener('pointermove', e => {
-    if (!drag || pieceDrag) return;
-    const dx = e.clientX - drag.startX;
-    const dy = e.clientY - drag.startY;
-    if (Math.abs(dx) + Math.abs(dy) > 5) {
+    if (!isDragging || pieceDrag) return;
+    const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
+    lastX = e.clientX;
+    lastY = e.clientY;
+
+    if (Math.hypot(e.clientX - startX, e.clientY - startY) > 5) {
       moved = true;
     }
-    ry = drag.ry + dx * 0.55;
-    rx = Math.max(-88, Math.min(88, drag.rx - dy * 0.55));
+
+    const speed = 0.0075;
+    const thetaX = -dy * speed;
+    const thetaY = dx * speed;
+    const deltaQx = [Math.cos(thetaX / 2), Math.sin(thetaX / 2), 0, 0];
+    const deltaQy = [Math.cos(thetaY / 2), 0, Math.sin(thetaY / 2), 0];
+    const deltaQ = quatMultiply(deltaQx, deltaQy);
+
+    cubeQuat = quatNormalize(quatMultiply(deltaQ, cubeQuat));
     setCubeTransform(false);
   });
 
-  window.addEventListener('pointerup', () => {
-    drag = null;
-  });
-  window.addEventListener('pointercancel', () => {
-    drag = null;
-  });
+  const stopDrag = () => {
+    isDragging = false;
+  };
+  window.addEventListener('pointerup', stopDrag);
+  window.addEventListener('pointercancel', stopDrag);
 
-  // View preset chips
+  // View preset chips (if any exist)
   document.querySelectorAll('[data-view]').forEach(chip => {
     chip.onclick = () => {
       const v = VIEW_PRESETS[chip.dataset.view];
       if (!v) return;
-      rx = v.rx;
-      ry = v.ry;
+      cubeQuat = eulerToQuat(v.rx, v.ry);
       setCubeTransform(true);
       document.querySelectorAll('[data-view]').forEach(c => c.classList.remove('on'));
       chip.classList.add('on');
@@ -845,13 +1260,21 @@ function updateSolveUI() {
     ? '恭喜完成！方塊已經全部轉回來了！'
     : DESC[currentMove];
 
-  if (step === 0) {
-    $('cheer').textContent = '拿好吊飾（左下後方），照著箭頭一步一步做！';
-  } else if (isFinished) {
-    $('cheer').textContent = 'ALLDAY PROJECT: 太棒了！完美復原！';
+  const finishItem = getFinishCheer();
+
+  let item;
+  if (isFinished) {
+    item = finishItem;
   } else {
-    $('cheer').textContent = CHEERS[(step - 1) % CHEERS.length];
+    item = sessionCheers[step] || getActiveCheers()[step % getActiveCheers().length];
   }
+  currentCheerItem = item;
+
+  $('cheer').innerHTML = `
+    <span class="cheer-lyric">"${item.lyric}"</span>
+    <span class="cheer-tag">${item.member} · ${item.song}</span>
+  `;
+  playCheerAudio(item);
 
   const pills = document.querySelectorAll('.mv');
   pills.forEach((p, idx) => {
@@ -863,18 +1286,57 @@ function updateSolveUI() {
   $('btnReplay').disabled = isFinished;
 }
 
+function renderFinishPicker(currentFinish) {
+  const sel = $('selFinishCheer');
+  if (!sel) return;
+  const allCheers = getActiveCheers();
+  sel.innerHTML = allCheers.map((c, i) => {
+    const isSel = (c.id && c.id === currentFinish.id) || c.lyric === currentFinish.lyric;
+    const songName = (c.song || '').replace('.mp3', '');
+    const cid = c.id || `c_${i}`;
+    return `<option value="${cid}" ${isSel ? 'selected' : ''}>${c.member} · 《${songName}》: "${c.lyric}"</option>`;
+  }).join('');
+}
+
+function changeFinishCheer(val) {
+  const allCheers = getActiveCheers();
+  const found = allCheers.find((c, i) => (c.id && c.id === val) || `c_${i}` === val || c.lyric === val);
+  if (found) {
+    setFinishCheerId(found.id || found.lyric);
+    currentCheerItem = found;
+    $('cheer').innerHTML = `
+      <span class="cheer-lyric">"${found.lyric}"</span>
+      <span class="cheer-tag">${found.member} · ${found.song}</span>
+    `;
+    playCheerAudio(found);
+  }
+}
+
 function exitSolve() {
   stopPlay();
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    currentAudio = null;
+  }
   mode = 'edit';
   $('solveBox').classList.add('hidden');
   $('editBox').classList.remove('hidden');
   updateQuadUI();
+  playBgm();
 }
 
 function stopPlay() {
   if (timer) {
     clearInterval(timer);
     timer = null;
+  }
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    currentAudio = null;
   }
   const btn = $('btnPlay');
   if (btn) btn.textContent = '▶ 自動播放';
@@ -999,9 +1461,10 @@ $('btnSolve').onclick = () => {
 
     $('editBox').classList.add('hidden');
     $('solveBox').classList.remove('hidden');
+    pauseBgm();
+    prepareSessionCheers(sol.length + 1);
 
-    rx = -22;
-    ry = 35;
+    cubeQuat = [...DEFAULT_QUAT];
     setCubeTransform(true);
     document.querySelectorAll('[data-view]').forEach(c => c.classList.toggle('on', c.dataset.view === 'front'));
 
@@ -1019,15 +1482,25 @@ $('btnReplay').onclick = replay;
 $('btnFirst').onclick = () => { stopPlay(); go(0); };
 $('btnEdit').onclick = () => { exitSolve(); renderAllStickers(); updateStatus(); showMsg(''); };
 
+const btnVoice = $('btnVoice');
+if (btnVoice) {
+  btnVoice.onclick = () => {
+    if (currentCheerItem) {
+      voiceEnabled = true;
+      playCheerAudio(currentCheerItem);
+    }
+  };
+}
+
 $('btnPlay').onclick = () => {
   if (timer) return stopPlay();
   if (step >= sol.length) go(0);
   $('btnPlay').textContent = '❚❚ 暫停';
-  // Slower auto-play interval (2800ms per step) so users can comfortably follow along with their real cube
+  // Auto-play interval set to 3.8s (3800ms) per step for comfortable following and listening to full lyrics
   timer = setInterval(() => {
     if (step >= sol.length) return stopPlay();
     go(step + 1, true);
-  }, 2800);
+  }, 3800);
 };
 
 document.addEventListener('keydown', e => {
@@ -1041,6 +1514,20 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// BGM Button Setup
+const btnBgm = $('btnBgm');
+if (btnBgm) {
+  btnBgm.onclick = toggleBgm;
+  updateBgmButton();
+}
+
+// User interaction fallback to start BGM if browser initially paused it
+document.addEventListener('click', () => {
+  if (mode === 'edit' && bgmEnabled && (!bgmAudio || bgmAudio.paused)) {
+    playBgm();
+  }
+}, { once: true });
+
 // Initialization
 initIntroCube();
 init3DCube();
@@ -1050,10 +1537,6 @@ initViewControls();
 setCubeTransform(false);
 clearToDefault();
 
-showMsg('正在載入解題大腦…');
 setTimeout(() => {
-  const t0 = performance.now();
   buildTables();
-  const dur = Math.round(performance.now() - t0);
-  showMsg(`準備完成（${dur}ms）· 吊飾角塊已自動定位，請將 1/4 拼圖拖曳或點選填入空格！`);
 }, 30);

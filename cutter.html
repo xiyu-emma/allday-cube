@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALLDAY PROJECT 《CRASH》 歌詞與音訊自訂工具</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #d4b483;
+    --gold2: #f2dec2;
+    --bg: #09090d;
+    --card: #13131c;
+    --card2: #191924;
+    --line: rgba(212, 180, 131, 0.2);
+    --text: #eae8e3;
+    --mute: #8e8a82;
+    --success: #63e284;
+    --danger: #ff6b6b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans TC', sans-serif;
+    padding: 30px 20px 80px;
+    display: flex;
+    justify-content: center;
+  }
+  .wrap { max-width: 960px; width: 100%; }
+  header { text-align: center; margin-bottom: 24px; }
+  h1 {
+    font-family: 'Cinzel', serif;
+    color: var(--gold2);
+    letter-spacing: 0.08em;
+    font-size: 26px;
+    margin-bottom: 6px;
+  }
+  .sub {
+    color: var(--mute);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* Player Card */
+  .player-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    position: sticky;
+    top: 15px;
+    z-index: 10;
+  }
+  .song-select-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .song-select-row label {
+    font-weight: 700;
+    color: var(--gold);
+    font-size: 14px;
+  }
+  select, input[type="text"], input[type="number"] {
+    background: var(--card2);
+    color: var(--gold2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: 0.15s;
+  }
+  select:focus, input:focus {
+    border-color: var(--gold);
+  }
+
+  .timeline-box { margin: 12px 0 10px; }
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  input[type="range"] {
+    flex: 1;
+    accent-color: var(--gold);
+    cursor: pointer;
+    height: 8px;
+  }
+  .time-display {
+    font-family: monospace;
+    font-size: 15px;
+    color: var(--gold2);
+    font-weight: 700;
+    min-width: 120px;
+    text-align: right;
+  }
+
+  .controls-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: 0.15s;
+  }
+  .btn-main {
+    background: linear-gradient(135deg, var(--gold2), var(--gold));
+    color: #12100d;
+    font-weight: 700;
+    border: none;
+    padding: 8px 18px;
+    font-size: 14px;
+  }
+  .btn-main:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(212, 180, 131, 0.35);
+  }
+  .btn-sec {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  .btn-sec:hover {
+    border-color: var(--gold);
+    color: var(--gold2);
+  }
+  .btn-mark {
+    background: rgba(212, 180, 131, 0.15);
+    border: 1px solid var(--gold);
+    color: var(--gold2);
+    font-weight: 700;
+    padding: 6px 14px;
+    font-size: 13px;
+  }
+  .btn-mark:hover {
+    background: rgba(212, 180, 131, 0.3);
+  }
+
+  /* Clip Marker Table */
+  .clips-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 28px 0 14px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .clips-header h2 {
+    font-size: 18px;
+    color: var(--gold2);
+  }
+  .action-bar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .clip-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .clip-item {
+    background: var(--card);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: 0.15s;
+  }
+  .clip-item.active {
+    border-color: var(--gold);
+    box-shadow: 0 0 16px rgba(212, 180, 131, 0.22);
+  }
+  .clip-row-1 {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .clip-num {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--gold2);
+    min-width: 28px;
+  }
+  .clip-row-2 {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .btn-del {
+    background: transparent;
+    border: 1px solid rgba(255, 107, 107, 0.35);
+    color: var(--danger);
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  .btn-del:hover {
+    background: rgba(255, 107, 107, 0.15);
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #192b1b;
+    color: var(--success);
+    border: 1px solid var(--success);
+    padding: 12px 24px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 14px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+    display: none;
+    z-index: 100;
+  }
+  .json-area {
+    width: 100%;
+    height: 160px;
+    background: #060609;
+    border: 1px solid var(--line);
+    color: #4af626;
+    font-family: monospace;
+    font-size: 12px;
+    padding: 10px;
+    border-radius: 8px;
+    margin-top: 14px;
+    resize: vertical;
+    display: none;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>CRASH 歌詞與演唱者自訂工具</h1>
+    <p class="sub">
+      您可以在下方直接修改每一句的<b>【演唱者】</b>、<b>【所屬歌曲】</b>、<b>【歌詞文字】</b>與<b>【精準秒數】</b>！<br>
+      修改完成後點擊<b>【儲存並直接套用到方塊】</b>，回魔術方塊頁面重新整理即可立即生效！
+    </p>
+  </header>
+
+  <!-- Player Controller (Sticky) -->
+  <div class="player-card">
+    <div class="song-select-row">
+      <label>聽歌對位播放器：</label>
+      <select id="selSong" onchange="switchSong()">
+        <option value="audio/CRASH.mp3">1. CRASH (2:53)</option>
+        <option value="audio/DO IT LIKE THIS.mp3">2. DO IT LIKE THIS (2:14)</option>
+        <option value="audio/NO LIMIT.mp3">3. NO LIMIT (2:20)</option>
+        <option value="audio/TALK.mp3">4. TALK (2:50)</option>
+        <option value="audio/UP ALL NIGHT.mp3">5. UP ALL NIGHT (2:43)</option>
+      </select>
+      <span style="font-size:12px; color:var(--mute);">（點選下方任一片段會自動切換至對應歌曲）</span>
+    </div>
+
+    <div class="timeline-box">
+      <div class="slider-row">
+        <input type="range" id="seekRange" min="0" max="100" step="0.1" value="0" oninput="onSeekInput()">
+        <span class="time-display" id="timeDisplay">00:00.0 / 00:00.0</span>
+      </div>
+    </div>
+
+    <div class="controls-row">
+      <button class="btn-sec" onclick="seekOffset(-5)">-5s</button>
+      <button class="btn-sec" onclick="seekOffset(-1)">-1s</button>
+      <button class="btn-main" id="btnPlayPause" onclick="togglePlay()">播放 / 暫停 (Space)</button>
+      <button class="btn-sec" onclick="seekOffset(1)">+1s</button>
+      <button class="btn-sec" onclick="seekOffset(5)">+5s</button>
+      <button class="btn-mark" onclick="markCurrentAsStart()">將目前秒數設為選定【起點】</button>
+      <button class="btn-mark" onclick="markCurrentAsEnd()">將目前秒數設為選定【終點】</button>
+    </div>
+  </div>
+
+  <!-- Clips List -->
+  <div class="clips-header">
+    <h2>各步驟歌詞設定清單</h2>
+    <div class="action-bar">
+      <button class="btn-sec" onclick="addNewClip()">[+] 新增一段歌詞</button>
+      <button class="btn-sec" onclick="resetDefaults()">恢復預設</button>
+      <button class="btn-main" onclick="saveAndApply()">儲存設定</button>
+    </div>
+  </div>
+
+  <!-- Finish Cheer Selector Banner -->
+  <div class="finish-banner" style="background:var(--card); border:1px solid var(--gold); border-radius:14px; padding:16px 20px; margin-bottom:18px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; box-shadow:0 4px 18px rgba(212,180,131,0.12);">
+    <div>
+      <div style="font-weight:700; color:var(--gold2); font-size:15px; margin-bottom:4px;">魔術方塊完成時專屬慶祝歌詞（由您指定）：</div>
+      <div style="font-size:12px; color:var(--mute);">此句將專屬於最後轉好時播放！其他所有成員的歌詞在解題各步驟中會<b>自動隨機出現</b>，驚喜不重複！</div>
+    </div>
+    <select id="selFinishClip" onchange="onFinishSelectChange(this.value)" style="min-width:300px; max-width:440px; font-weight:700; border-color:var(--gold); color:var(--gold2);"></select>
+  </div>
+
+  <div class="clip-list" id="clipList"></div>
+
+  <div style="margin-top:28px; text-align:center;">
+    <button class="btn-sec" onclick="showExportJson()">匯出設定代碼 (JSON)</button>
+    <textarea class="json-area" id="jsonArea" readonly></textarea>
+  </div>
+</div>
+
+<div class="toast" id="toastMsg">已成功儲存！打開或重新整理 index.html 即可直接使用！</div>
+<audio id="mainAudio" preload="auto"></audio>
+
+<script>
+const MEMBERS = ['ANNIE', 'TARZZAN', 'BAILEY', 'WOOCHAN', 'YOUNGSEO', 'ALLDAY'];
+const SONGS = ['CRASH.mp3', 'DO IT LIKE THIS.mp3', 'NO LIMIT.mp3', 'TALK.mp3', 'UP ALL NIGHT.mp3'];
+
+const DEFAULT_CLIPS = [
+  { id: "c1", member: "ANNIE", song: "DO IT LIKE THIS.mp3", lyric: "Dance watch me dance, watch me do my dance!", file: "audio/c1.wav", start: 6.9, end: 10.6 },
+  { id: "c2", member: "TARZZAN", song: "CRASH.mp3", lyric: "I just wanna keep the shots going Blame it on me", file: "audio/c2.wav", start: 0.4, end: 4.4 },
+  { id: "c3", member: "YOUNGSEO", song: "DO IT LIKE THIS.mp3", lyric: "They wanna know just how we roll", file: "audio/c3.wav", start: 90.1, end: 93.5 },
+  { id: "c4", member: "BAILEY", song: "NO LIMIT.mp3", lyric: "Pullin' up smooth, but I move quick 불러 봐 price, I'ma match it", file: "audio/c4.wav", start: 16.9, end: 20 },
+  { id: "c5", member: "WOOCHAN", song: "UP ALL NIGHT.mp3", lyric: "You know we be coming on sight", file: "audio/c5.wav", start: 49.4, end: 52.8 },
+  { id: "c6", member: "YOUNGSEO", song: "CRASH.mp3", lyric: "It's a show now, tear the roof down", file: "audio/c6.wav", start: 95.1, end: 99.1 },
+  { id: "c7", member: "BAILEY", song: "NO LIMIT.mp3", lyric: "All day my clique, pull up like this! Step back when we hit 'em with the ", file: "audio/c7.wav", start: 47.9, end: 51.4 },
+  { id: "c8", member: "ANNIE", song: "TALK.mp3", lyric: "Running your big mouth since day one Got my day ones running you down all day", file: "audio/c8.wav", start: 32.6, end: 36.3 },
+  { id: "c9", member: "WOOCHAN", song: "CRASH.mp3", lyric: "I don't need your lo-lo-lo-lo-lo-lo-love", file: "audio/c9.wav", start: 58.7, end: 62.1 },
+  { id: "c10", member: "TARZZAN", song: "DO IT LIKE THIS.mp3", lyric: "She can't copy my swag Can't copy my swag (Yeah)", file: "audio/c10.wav", start: 71.6, end: 75.5 },
+  { id: "c11", member: "TARZZAN", song: "NO LIMIT.mp3", lyric: "No limit Make 'em say (Oh)", file: "audio/c11.wav", start: 103.2, end: 106.7 },
+  { id: "c12", member: "WOOCHAN", song: "UP ALL NIGHT.mp3", lyric: "Don't stress 불러 let your friends come too, yeah", file: "audio/c12.wav", start: 18.8, end: 21.6 },
+  { id: "c13", member: "YOUNGSEO", song: "CRASH.mp3", lyric: "예고 따윈 없이 We crash the party", file: "audio/c13.wav", start: 12.2, end: 15.1 },
+  { id: "c14", member: "WOOCHAN", song: "DO IT LIKE THIS.mp3", lyric: "Monday, Tuesday, Friday, do it like this!", file: "audio/c14.wav", start: 51.6, end: 55 },
+  { id: "c15", member: "BAILEY", song: "UP ALL NIGHT.mp3", lyric: "Would you come and waste my time 'til 5 in the morning?", file: "audio/c15.wav", start: 53, end: 56.2 },
+  { id: "c_1793865092293", member: "ALLDAY", song: "UP ALL NIGHT.mp3", lyric: "°☆::‧(￣▽￣)/‧:‧°☆", file: "audio/c_1793865092293.wav", start: 158.1, end: 162.3 }
+];
+
+// Finish cheer ID tracking
+let finishCheerId = (() => {
+  try {
+    const saved = localStorage.getItem('allday_finish_cheer_id');
+    if (saved) return saved;
+  } catch(e) {}
+  return 'c_1793865092293';
+})();
+
+// Load from localStorage or defaults
+let clips = (() => {
+  try {
+    const saved = localStorage.getItem('allday_custom_cheers');
+    if (saved) {
+      const arr = JSON.parse(saved);
+      if (Array.isArray(arr) && arr.length > 0) {
+        return arr.map((item, idx) => ({
+          id: item.id || `c${idx + 1}`,
+          member: item.member,
+          song: item.song.endsWith('.mp3') ? item.song : item.song + '.mp3',
+          lyric: item.lyric,
+          start: item.start,
+          end: item.end
+        }));
+      }
+    }
+  } catch (e) {}
+  return JSON.parse(JSON.stringify(DEFAULT_CLIPS));
+})();
+
+const audio = document.getElementById('mainAudio');
+const seekRange = document.getElementById('seekRange');
+const timeDisplay = document.getElementById('timeDisplay');
+const btnPlayPause = document.getElementById('btnPlayPause');
+const selSong = document.getElementById('selSong');
+
+let activeClipIdx = 0;
+let clipPlayTimer = null;
+
+function fmtTime(sec) {
+  if (isNaN(sec)) return '00:00.0';
+  const m = Math.floor(sec / 60);
+  const s = (sec % 60).toFixed(1);
+  return `${String(m).padStart(2, '0')}:${s.padStart(4, '0')}`;
+}
+
+function switchSong() {
+  audio.src = selSong.value;
+  audio.load();
+  audio.play();
+  btnPlayPause.textContent = '❚❚ 暫停 (Space)';
+}
+
+function togglePlay() {
+  if (audio.paused) {
+    audio.play();
+    btnPlayPause.textContent = '❚❚ 暫停 (Space)';
+  } else {
+    audio.pause();
+    btnPlayPause.textContent = '▶ 播放 (Space)';
+  }
+}
+
+function seekOffset(dt) {
+  audio.currentTime = Math.max(0, Math.min(audio.duration || 0, audio.currentTime + dt));
+}
+
+function onSeekInput() {
+  audio.currentTime = parseFloat(seekRange.value);
+}
+
+audio.addEventListener('timeupdate', () => {
+  if (!audio.duration) return;
+  seekRange.max = audio.duration;
+  seekRange.value = audio.currentTime;
+  timeDisplay.textContent = `${fmtTime(audio.currentTime)} / ${fmtTime(audio.duration)}`;
+});
+
+audio.addEventListener('loadedmetadata', () => {
+  seekRange.max = audio.duration;
+  timeDisplay.textContent = `${fmtTime(audio.currentTime)} / ${fmtTime(audio.duration)}`;
+});
+
+audio.addEventListener('play', () => { btnPlayPause.textContent = '❚❚ 暫停 (Space)'; });
+audio.addEventListener('pause', () => { btnPlayPause.textContent = '▶ 播放 (Space)'; });
+
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  if (e.code === 'Space') {
+    e.preventDefault();
+    togglePlay();
+  }
+});
+
+function selectClip(idx) {
+  activeClipIdx = idx;
+  renderClips();
+  const c = clips[idx];
+  const targetSrc = `audio/${c.song}`;
+  if (selSong.value !== targetSrc) {
+    selSong.value = targetSrc;
+    audio.src = targetSrc;
+    audio.load();
+    audio.addEventListener('loadedmetadata', () => {
+      audio.currentTime = c.start;
+    }, { once: true });
+  } else {
+    audio.currentTime = c.start;
+  }
+}
+
+function markCurrentAsStart() {
+  const t = Math.round(audio.currentTime * 10) / 10;
+  clips[activeClipIdx].start = t;
+  renderClips();
+}
+
+function markCurrentAsEnd() {
+  const t = Math.round(audio.currentTime * 10) / 10;
+  clips[activeClipIdx].end = t;
+  renderClips();
+}
+
+function previewClip(idx) {
+  selectClip(idx);
+  const c = clips[idx];
+  if (clipPlayTimer) clearTimeout(clipPlayTimer);
+  audio.currentTime = c.start;
+  audio.play();
+  const dur = Math.max(500, (c.end - c.start) * 1000);
+  clipPlayTimer = setTimeout(() => {
+    audio.pause();
+  }, dur);
+}
+
+function updateMember(idx, val) {
+  clips[idx].member = val;
+  renderFinishSelector();
+}
+
+function updateSong(idx, val) {
+  clips[idx].song = val;
+  renderClips();
+  renderFinishSelector();
+  selectClip(idx);
+}
+
+function updateLyric(idx, val) {
+  clips[idx].lyric = val;
+  renderFinishSelector();
+}
+
+function updateStart(idx, val) { clips[idx].start = parseFloat(val) || 0; }
+function updateEnd(idx, val) { clips[idx].end = parseFloat(val) || 0; }
+
+function onFinishSelectChange(val) {
+  finishCheerId = val;
+  renderClips();
+  renderFinishSelector();
+}
+
+function setClipAsFinish(id) {
+  finishCheerId = id;
+  renderClips();
+  renderFinishSelector();
+  showToast('已成功設定此句為魔術方塊完成慶祝歌詞！');
+}
+
+function renderFinishSelector() {
+  const sel = document.getElementById('selFinishClip');
+  if (!sel) return;
+  sel.innerHTML = clips.map((c, idx) => {
+    const cid = c.id || `c${idx + 1}`;
+    const isSel = (cid === finishCheerId) || (c.lyric === finishCheerId);
+    return `<option value="${cid}" ${isSel ? 'selected' : ''}>[${c.member}] 《${c.song.replace('.mp3','')}》: "${c.lyric.replace(/"/g, '&quot;')}"</option>`;
+  }).join('');
+}
+
+function addNewClip() {
+  const newId = 'c_' + Date.now();
+  clips.push({
+    id: newId,
+    member: 'ANNIE',
+    song: 'CRASH.mp3',
+    lyric: 'New lyric sentence here',
+    start: 0,
+    end: 3
+  });
+  activeClipIdx = clips.length - 1;
+  renderClips();
+  renderFinishSelector();
+  selectClip(activeClipIdx);
+}
+
+function deleteClip(idx) {
+  if (clips.length <= 1) {
+    alert('至少需要保留一段歌詞喔！');
+    return;
+  }
+  const deleted = clips.splice(idx, 1)[0];
+  if (deleted && deleted.id === finishCheerId && clips.length > 0) {
+    finishCheerId = clips[0].id || 'c1';
+  }
+  if (activeClipIdx >= clips.length) activeClipIdx = clips.length - 1;
+  renderClips();
+  renderFinishSelector();
+}
+
+function resetDefaults() {
+  if (confirm('確定要恢復預設的歌詞與秒數設定嗎？')) {
+    clips = JSON.parse(JSON.stringify(DEFAULT_CLIPS));
+    finishCheerId = 'c4';
+    localStorage.removeItem('allday_custom_cheers');
+    localStorage.removeItem('allday_finish_cheer_id');
+    renderClips();
+    renderFinishSelector();
+    selectClip(0);
+    showToast('已恢復預設設定！');
+  }
+}
+
+function saveAndApply() {
+  const cleanData = clips.map((c, idx) => ({
+    id: c.id || `c${idx + 1}`,
+    member: c.member,
+    song: c.song.replace('.mp3', ''),
+    lyric: c.lyric,
+    file: `audio/${c.id || `c${idx + 1}`}.wav`,
+    src: `audio/${c.song.endsWith('.mp3') ? c.song : c.song + '.mp3'}`,
+    start: c.start,
+    end: c.end
+  }));
+
+  localStorage.setItem('allday_custom_cheers', JSON.stringify(cleanData));
+  localStorage.setItem('allday_finish_cheer_id', finishCheerId);
+  showToast('✅ 已成功儲存！已同步歌詞與完成句設定，打開或重新整理 index.html 即可直接使用！');
+}
+
+async function exportClippedZip() {
+  const btn = document.getElementById('btnZip');
+  const origText = btn.textContent;
+  try {
+    btn.disabled = true;
+    btn.textContent = '正在讀取並準備音訊引擎...';
+
+    saveAndApply();
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const songBuffers = {};
+    const uniqueSongs = [...new Set(clips.map(c => c.song.endsWith('.mp3') ? c.song : c.song + '.mp3'))];
+
+    for (let i = 0; i < uniqueSongs.length; i++) {
+      const s = uniqueSongs[i];
+      btn.textContent = `讀取歌曲中 (${i + 1}/${uniqueSongs.length}): ${s}...`;
+      const resp = await fetch('audio/' + s);
+      if (!resp.ok) throw new Error(`找不到音訊檔案 audio/${s}`);
+      const arrayBuf = await resp.arrayBuffer();
+      songBuffers[s] = await audioCtx.decodeAudioData(arrayBuf);
+    }
+
+    const zipFiles = [];
+
+    for (let i = 0; i < clips.length; i++) {
+      const c = clips[i];
+      const sName = c.song.endsWith('.mp3') ? c.song : c.song + '.mp3';
+      const buf = songBuffers[sName];
+      if (!buf) continue;
+
+      btn.textContent = `正在裁切第 ${i + 1}/${clips.length} 句: [${c.member}]...`;
+
+      const startSec = Math.max(0, c.start);
+      const endSec = Math.min(buf.duration, Math.max(startSec + 0.3, c.end));
+      const sampleRate = buf.sampleRate;
+      const startSample = Math.floor(startSec * sampleRate);
+      const endSample = Math.floor(endSec * sampleRate);
+      const length = Math.max(1, endSample - startSample);
+
+      const subBuf = audioCtx.createBuffer(buf.numberOfChannels, length, sampleRate);
+      for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+        const fromData = buf.getChannelData(ch);
+        const toData = subBuf.getChannelData(ch);
+        toData.set(fromData.subarray(startSample, endSample));
+      }
+
+      const wavBlob = audioBufferToWav(subBuf);
+      const wavBytes = new Uint8Array(await wavBlob.arrayBuffer());
+      const cid = c.id || `c${i + 1}`;
+      zipFiles.push({ name: `${cid}.wav`, data: wavBytes });
+    }
+
+    const meta = {
+      finishCheerId,
+      cheers: clips.map((c, idx) => ({
+        id: c.id || `c${idx + 1}`,
+        member: c.member,
+        song: c.song.replace('.mp3', ''),
+        lyric: c.lyric,
+        file: `audio/${c.id || `c${idx + 1}`}.wav`,
+        start: c.start,
+        end: c.end
+      }))
+    };
+    zipFiles.push({
+      name: 'cheers_manifest.json',
+      data: new TextEncoder().encode(JSON.stringify(meta, null, 2))
+    });
+
+    btn.textContent = '正在封裝 ZIP 檔案...';
+    const zipBlob = makeZip(zipFiles);
+    const downloadUrl = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = 'allday_audio_clips.zip';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    btn.textContent = '下載成功！';
+    showToast('已成功打包下載 allday_audio_clips.zip！請將裡面的 .wav 檔案解壓縮放到 audio 資料夾，即可刪除原有的五首大 MP3！');
+    setTimeout(() => {
+      btn.textContent = origText;
+      btn.disabled = false;
+    }, 4000);
+  } catch (err) {
+    alert('裁切音訊發生錯誤：' + err.message);
+    btn.textContent = origText;
+    btn.disabled = false;
+  }
+}
+
+function audioBufferToWav(buffer) {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const bitDepth = 16;
+
+  let interleaved;
+  if (numChannels === 2) {
+    const left = buffer.getChannelData(0);
+    const right = buffer.getChannelData(1);
+    interleaved = new Float32Array(left.length + right.length);
+    for (let i = 0; i < left.length; i++) {
+      interleaved[i * 2] = left[i];
+      interleaved[i * 2 + 1] = right[i];
+    }
+  } else {
+    interleaved = buffer.getChannelData(0);
+  }
+
+  const byteRate = sampleRate * numChannels * (bitDepth / 8);
+  const blockAlign = numChannels * (bitDepth / 8);
+  const dataSize = interleaved.length * (bitDepth / 8);
+  const bufferLength = 44 + dataSize;
+  const arrayBuffer = new ArrayBuffer(bufferLength);
+  const view = new DataView(arrayBuffer);
+
+  function writeStr(offset, str) {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  }
+
+  writeStr(0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitDepth, true);
+  writeStr(36, 'data');
+  view.setUint32(40, dataSize, true);
+
+  let offset = 44;
+  for (let i = 0; i < interleaved.length; i++, offset += 2) {
+    const s = Math.max(-1, Math.min(1, interleaved[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+  }
+  return new Blob([view], { type: 'audio/wav' });
+}
+
+const CRC32_TABLE = new Uint32Array(256);
+for (let i = 0; i < 256; i++) {
+  let c = i;
+  for (let k = 0; k < 8; k++) c = ((c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1));
+  CRC32_TABLE[i] = c;
+}
+function crc32(buf) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < buf.length; i++) c = CRC32_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+function makeZip(files) {
+  const localHeaders = [];
+  const centralHeaders = [];
+  let offset = 0;
+
+  for (const f of files) {
+    const nameBytes = new TextEncoder().encode(f.name);
+    const data = f.data;
+    const crc = crc32(data);
+    const size = data.length;
+
+    const lh = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(lh.buffer);
+    lv.setUint32(0, 0x04034b50, true);
+    lv.setUint16(4, 20, true);
+    lv.setUint16(6, 0, true);
+    lv.setUint16(8, 0, true);
+    lv.setUint16(10, 0, true);
+    lv.setUint16(12, 0, true);
+    lv.setUint32(14, crc, true);
+    lv.setUint32(18, size, true);
+    lv.setUint32(22, size, true);
+    lv.setUint16(26, nameBytes.length, true);
+    lv.setUint16(28, 0, true);
+    lh.set(nameBytes, 30);
+
+    localHeaders.push({ header: lh, data, offset });
+
+    const ch = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(ch.buffer);
+    cv.setUint32(0, 0x02014b50, true);
+    cv.setUint16(4, 20, true);
+    cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0, true);
+    cv.setUint16(10, 0, true);
+    cv.setUint16(12, 0, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, size, true);
+    cv.setUint32(24, size, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint16(30, 0, true);
+    cv.setUint16(32, 0, true);
+    cv.setUint16(34, 0, true);
+    cv.setUint16(36, 0, true);
+    cv.setUint32(38, 0, true);
+    cv.setUint32(42, offset, true);
+    ch.set(nameBytes, 46);
+
+    centralHeaders.push(ch);
+    offset += lh.length + data.length;
+  }
+
+  const centralDirOffset = offset;
+  let centralDirSize = 0;
+  for (const ch of centralHeaders) centralDirSize += ch.length;
+
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(4, 0, true);
+  ev.setUint16(6, 0, true);
+  ev.setUint16(8, files.length, true);
+  ev.setUint16(10, files.length, true);
+  ev.setUint32(12, centralDirSize, true);
+  ev.setUint32(16, centralDirOffset, true);
+  ev.setUint16(20, 0, true);
+
+  const totalLength = centralDirOffset + centralDirSize + 22;
+  const out = new Uint8Array(totalLength);
+  let pos = 0;
+  for (const lh of localHeaders) {
+    out.set(lh.header, pos); pos += lh.header.length;
+    out.set(lh.data, pos); pos += lh.data.length;
+  }
+  for (const ch of centralHeaders) {
+    out.set(ch, pos); pos += ch.length;
+  }
+  out.set(eocd, pos);
+  return new Blob([out], { type: 'application/zip' });
+}
+
+function showToast(msg) {
+  const toast = document.getElementById('toastMsg');
+  toast.textContent = msg;
+  toast.style.display = 'block';
+  setTimeout(() => { toast.style.display = 'none'; }, 3500);
+}
+
+function showExportJson() {
+  const jsonEl = document.getElementById('jsonArea');
+  const exportData = {
+    finishCheerId,
+    cheers: clips.map((c, idx) => ({
+      id: c.id || `c${idx + 1}`,
+      member: c.member,
+      song: c.song.replace('.mp3', ''),
+      lyric: c.lyric,
+      file: `audio/${c.id || `c${idx + 1}`}.wav`,
+      start: c.start,
+      end: c.end
+    }))
+  };
+  jsonEl.style.display = 'block';
+  jsonEl.value = JSON.stringify(exportData, null, 2);
+  jsonEl.select();
+  navigator.clipboard.writeText(jsonEl.value);
+  showToast('設定代碼已複製到剪貼簿！');
+}
+
+function renderClips() {
+  const listEl = document.getElementById('clipList');
+  listEl.innerHTML = '';
+
+  clips.forEach((c, idx) => {
+    const el = document.createElement('div');
+    el.className = 'clip-item' + (idx === activeClipIdx ? ' active' : '');
+
+    const cid = c.id || `c${idx + 1}`;
+    const isFinish = (cid === finishCheerId) || (c.lyric === finishCheerId);
+
+    const memberOptions = MEMBERS.map(m =>
+      `<option value="${m}" ${m === c.member ? 'selected' : ''}>${m}</option>`
+    ).join('');
+
+    const songOptions = SONGS.map(s =>
+      `<option value="${s}" ${s === c.song ? 'selected' : ''}>${s}</option>`
+    ).join('');
+
+    el.innerHTML = `
+      <div class="clip-row-1">
+        <span class="clip-num">${idx + 1}.</span>
+        <label style="font-size:12px;color:var(--mute);">演唱者：</label>
+        <select onchange="updateMember(${idx}, this.value)" style="width:125px;">
+          ${memberOptions}
+        </select>
+        <label style="font-size:12px;color:var(--mute);">歌曲：</label>
+        <select onchange="updateSong(${idx}, this.value)" style="width:175px;">
+          ${songOptions}
+        </select>
+        <button class="btn-sec" onclick="previewClip(${idx})" style="margin-left:auto;">播放此句試聽</button>
+        ${isFinish ?
+          `<span style="background:var(--gold); color:#111; font-weight:700; font-size:12px; padding:4px 10px; border-radius:6px; display:inline-flex; align-items:center;">目前完成慶祝句</span>` :
+          `<button class="btn-sec" onclick="setClipAsFinish('${cid}')" style="font-size:12px; padding:4px 8px; border-color:rgba(212,180,131,0.5); color:var(--gold2);">設為完成句</button>`
+        }
+        <button class="btn-del" onclick="deleteClip(${idx})">刪除</button>
+      </div>
+
+      <div class="clip-row-2">
+        <label style="font-size:12px;color:var(--mute);">歌詞內容：</label>
+        <input type="text" value="${c.lyric.replace(/"/g, '&quot;')}" oninput="updateLyric(${idx}, this.value)" style="flex:1; min-width:240px;">
+        <label style="font-size:12px;color:var(--mute);">起點：</label>
+        <input type="number" step="0.1" value="${c.start}" oninput="updateStart(${idx}, this.value)" style="width:80px;">
+        <span style="font-size:12px;color:var(--mute);">秒</span>
+        <label style="font-size:12px;color:var(--mute);">終點：</label>
+        <input type="number" step="0.1" value="${c.end}" oninput="updateEnd(${idx}, this.value)" style="width:80px;">
+        <span style="font-size:12px;color:var(--mute);">秒</span>
+      </div>
+    `;
+
+    el.onclick = e => {
+      if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+      selectClip(idx);
+    };
+
+    listEl.appendChild(el);
+  });
+}
+
+// Initial load
+switchSong();
+renderClips();
+renderFinishSelector();
+</script>
+</body>
+</html>
