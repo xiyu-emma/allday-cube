@@ -1085,56 +1085,212 @@ function updateStatus() {
 }
 
 // 3D View Manipulation
+let cubeScale = 1.0;
+let cubePanX = 0;
+let cubePanY = 0;
+
+function updateResetBtn() {
+  const btn = $('btnResetView');
+  if (!btn) return;
+  const isChanged = Math.abs(cubeScale - 1.0) > 0.05 || Math.abs(cubePanX) > 8 || Math.abs(cubePanY) > 8;
+  btn.style.display = isChanged ? 'inline-block' : 'none';
+}
+
 function setCubeTransform(animate = false) {
   const cubeEl = $('cube');
   if (!cubeEl) return;
   cubeEl.classList.toggle('smooth', animate);
-  cubeEl.style.transform = quatToMatrix3d(cubeQuat);
+  cubeEl.style.transform = `translate3d(${cubePanX.toFixed(2)}px, ${cubePanY.toFixed(2)}px, 0px) scale3d(${cubeScale.toFixed(3)}, ${cubeScale.toFixed(3)}, ${cubeScale.toFixed(3)}) ${quatToMatrix3d(cubeQuat)}`;
+  updateResetBtn();
 }
 
 function initViewControls() {
   const stage = $('stage');
-  let isDragging = false;
-  let lastX = 0, lastY = 0;
   let startX = 0, startY = 0;
 
-  stage.addEventListener('pointerdown', e => {
+  const btnReset = $('btnResetView');
+  if (btnReset) {
+    btnReset.onclick = e => {
+      e.stopPropagation();
+      cubeScale = 1.0;
+      cubePanX = 0;
+      cubePanY = 0;
+      setCubeTransform(true);
+    };
+  }
+
+  // --- Touch Controls: Single-finger Rotate, Two-finger Pinch Zoom & Pan ---
+  let isTouching = false;
+  let isPinching = false;
+  let lastTouchX = 0, lastTouchY = 0;
+  let pinchStartDist = 0;
+  let pinchStartScale = 1.0;
+  let pinchStartMidX = 0, pinchStartMidY = 0;
+  let pinchStartPanX = 0, pinchStartPanY = 0;
+  let lastTapTime = 0;
+
+  stage.addEventListener('touchstart', e => {
     if (pieceDrag) return;
-    isDragging = true;
-    lastX = e.clientX;
-    lastY = e.clientY;
+
+    // Quick double-tap resets zoom and pan
+    const now = Date.now();
+    if (e.touches.length === 1 && (now - lastTapTime < 280)) {
+      e.preventDefault();
+      cubeScale = 1.0;
+      cubePanX = 0;
+      cubePanY = 0;
+      setCubeTransform(true);
+      lastTapTime = 0;
+      return;
+    }
+    lastTapTime = now;
+
+    if (e.touches.length === 1) {
+      isTouching = true;
+      isPinching = false;
+      lastTouchX = e.touches[0].clientX;
+      lastTouchY = e.touches[0].clientY;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      moved = false;
+    } else if (e.touches.length >= 2) {
+      e.preventDefault();
+      isTouching = false;
+      isPinching = true;
+      moved = true;
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      pinchStartDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      pinchStartScale = cubeScale;
+      pinchStartMidX = (t1.clientX + t2.clientX) / 2;
+      pinchStartMidY = (t1.clientY + t2.clientY) / 2;
+      pinchStartPanX = cubePanX;
+      pinchStartPanY = cubePanY;
+    }
+  }, { passive: false });
+
+  window.addEventListener('touchmove', e => {
+    if (pieceDrag) return;
+
+    if (isPinching && e.touches.length >= 2) {
+      e.preventDefault();
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const currentDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      if (pinchStartDist > 0) {
+        const factor = currentDist / pinchStartDist;
+        cubeScale = Math.max(0.55, Math.min(3.0, pinchStartScale * factor));
+      }
+      const currentMidX = (t1.clientX + t2.clientX) / 2;
+      const currentMidY = (t1.clientY + t2.clientY) / 2;
+      cubePanX = pinchStartPanX + (currentMidX - pinchStartMidX);
+      cubePanY = pinchStartPanY + (currentMidY - pinchStartMidY);
+      setCubeTransform(false);
+      moved = true;
+    } else if (isTouching && e.touches.length === 1) {
+      const curX = e.touches[0].clientX;
+      const curY = e.touches[0].clientY;
+      const dx = curX - lastTouchX;
+      const dy = curY - lastTouchY;
+      lastTouchX = curX;
+      lastTouchY = curY;
+
+      if (Math.hypot(curX - startX, curY - startY) > 5) {
+        moved = true;
+      }
+
+      const speed = 0.0075;
+      const thetaX = -dy * speed;
+      const thetaY = dx * speed;
+      const deltaQx = [Math.cos(thetaX / 2), Math.sin(thetaX / 2), 0, 0];
+      const deltaQy = [Math.cos(thetaY / 2), 0, Math.sin(thetaY / 2), 0];
+      const deltaQ = quatMultiply(deltaQx, deltaQy);
+
+      cubeQuat = quatNormalize(quatMultiply(deltaQ, cubeQuat));
+      setCubeTransform(false);
+    }
+  }, { passive: false });
+
+  const endTouch = e => {
+    if (e.touches.length === 0) {
+      isTouching = false;
+      isPinching = false;
+    } else if (e.touches.length === 1) {
+      isPinching = false;
+      isTouching = true;
+      lastTouchX = e.touches[0].clientX;
+      lastTouchY = e.touches[0].clientY;
+      startX = lastTouchX;
+      startY = lastTouchY;
+    }
+  };
+  window.addEventListener('touchend', endTouch);
+  window.addEventListener('touchcancel', endTouch);
+
+  // --- Desktop Mouse Controls: Left Drag Rotate, Right/Alt Drag Pan, Wheel Zoom ---
+  let isMouseDragging = false;
+  let isMousePanning = false;
+  let lastMouseX = 0, lastMouseY = 0;
+
+  stage.addEventListener('mousedown', e => {
+    if (pieceDrag) return;
+    if (e.button === 2 || e.shiftKey || e.altKey) {
+      isMousePanning = true;
+    } else if (e.button === 0) {
+      isMouseDragging = true;
+    }
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
     startX = e.clientX;
     startY = e.clientY;
     moved = false;
   });
 
-  window.addEventListener('pointermove', e => {
-    if (!isDragging || pieceDrag) return;
-    const dx = e.clientX - lastX;
-    const dy = e.clientY - lastY;
-    lastX = e.clientX;
-    lastY = e.clientY;
+  window.addEventListener('mousemove', e => {
+    if (pieceDrag) return;
+    if (!isMouseDragging && !isMousePanning) return;
+
+    const dx = e.clientX - lastMouseX;
+    const dy = e.clientY - lastMouseY;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
 
     if (Math.hypot(e.clientX - startX, e.clientY - startY) > 5) {
       moved = true;
     }
 
-    const speed = 0.0075;
-    const thetaX = -dy * speed;
-    const thetaY = dx * speed;
-    const deltaQx = [Math.cos(thetaX / 2), Math.sin(thetaX / 2), 0, 0];
-    const deltaQy = [Math.cos(thetaY / 2), 0, Math.sin(thetaY / 2), 0];
-    const deltaQ = quatMultiply(deltaQx, deltaQy);
+    if (isMousePanning) {
+      cubePanX += dx;
+      cubePanY += dy;
+      setCubeTransform(false);
+    } else if (isMouseDragging) {
+      const speed = 0.0075;
+      const thetaX = -dy * speed;
+      const thetaY = dx * speed;
+      const deltaQx = [Math.cos(thetaX / 2), Math.sin(thetaX / 2), 0, 0];
+      const deltaQy = [Math.cos(thetaY / 2), 0, Math.sin(thetaY / 2), 0];
+      const deltaQ = quatMultiply(deltaQx, deltaQy);
 
-    cubeQuat = quatNormalize(quatMultiply(deltaQ, cubeQuat));
-    setCubeTransform(false);
+      cubeQuat = quatNormalize(quatMultiply(deltaQ, cubeQuat));
+      setCubeTransform(false);
+    }
   });
 
-  const stopDrag = () => {
-    isDragging = false;
-  };
-  window.addEventListener('pointerup', stopDrag);
-  window.addEventListener('pointercancel', stopDrag);
+  window.addEventListener('mouseup', () => {
+    isMouseDragging = false;
+    isMousePanning = false;
+  });
+
+  stage.addEventListener('wheel', e => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.08 : 0.92;
+    cubeScale = Math.max(0.55, Math.min(3.0, cubeScale * factor));
+    setCubeTransform(false);
+  }, { passive: false });
+
+  stage.addEventListener('contextmenu', e => {
+    e.preventDefault();
+  });
 
   // View preset chips (if any exist)
   document.querySelectorAll('[data-view]').forEach(chip => {
@@ -1142,6 +1298,9 @@ function initViewControls() {
       const v = VIEW_PRESETS[chip.dataset.view];
       if (!v) return;
       cubeQuat = eulerToQuat(v.rx, v.ry);
+      cubeScale = 1.0;
+      cubePanX = 0;
+      cubePanY = 0;
       setCubeTransform(true);
       document.querySelectorAll('[data-view]').forEach(c => c.classList.remove('on'));
       chip.classList.add('on');
