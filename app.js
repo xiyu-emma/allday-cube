@@ -1283,7 +1283,7 @@ function updateSolveUI() {
 
   $('btnPrev').disabled = step <= 0;
   $('btnNext').disabled = isFinished;
-  $('btnReplay').disabled = isFinished;
+  if ($('btnReplay')) $('btnReplay').disabled = isFinished;
 }
 
 function renderFinishPicker(currentFinish) {
@@ -1327,6 +1327,18 @@ function exitSolve() {
   playBgm();
 }
 
+function startPlay() {
+  if (timer) return;
+  if (step >= sol.length) go(0);
+  const btn = $('btnPlay');
+  if (btn) btn.textContent = '暫停';
+  // Auto-play interval set to 3.8s (3800ms) per step for comfortable following and listening to full lyrics
+  timer = setInterval(() => {
+    if (step >= sol.length) return stopPlay();
+    go(step + 1, true);
+  }, 3800);
+}
+
 function stopPlay() {
   if (timer) {
     clearInterval(timer);
@@ -1339,7 +1351,7 @@ function stopPlay() {
     currentAudio = null;
   }
   const btn = $('btnPlay');
-  if (btn) btn.textContent = '▶ 自動播放';
+  if (btn) btn.textContent = '自動播放';
 }
 
 // Action Buttons
@@ -1471,6 +1483,9 @@ $('btnSolve').onclick = () => {
     showMsg(sol.length ? `找到最佳解：只需 ${sol.length} 步！` : '目前已經是完成狀態囉！');
     renderAllStickers();
     updateSolveUI();
+    if (sol.length > 0) {
+      startPlay();
+    }
   } catch (err) {
     showMsg(typeof err === 'string' ? err : '輸入的方塊狀態有誤，請檢查', true);
   }
@@ -1478,7 +1493,8 @@ $('btnSolve').onclick = () => {
 
 $('btnNext').onclick = () => go(step + 1, true);
 $('btnPrev').onclick = () => go(step - 1, true);
-$('btnReplay').onclick = replay;
+const btnReplay = $('btnReplay');
+if (btnReplay) btnReplay.onclick = replay;
 $('btnFirst').onclick = () => { stopPlay(); go(0); };
 $('btnEdit').onclick = () => { exitSolve(); renderAllStickers(); updateStatus(); showMsg(''); };
 
@@ -1493,14 +1509,11 @@ if (btnVoice) {
 }
 
 $('btnPlay').onclick = () => {
-  if (timer) return stopPlay();
-  if (step >= sol.length) go(0);
-  $('btnPlay').textContent = '❚❚ 暫停';
-  // Auto-play interval set to 3.8s (3800ms) per step for comfortable following and listening to full lyrics
-  timer = setInterval(() => {
-    if (step >= sol.length) return stopPlay();
-    go(step + 1, true);
-  }, 3800);
+  if (timer) {
+    stopPlay();
+  } else {
+    startPlay();
+  }
 };
 
 document.addEventListener('keydown', e => {
