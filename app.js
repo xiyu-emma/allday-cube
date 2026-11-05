@@ -71,7 +71,7 @@ function quatToMatrix3d(q) {
   return `matrix3d(${m00.toFixed(6)}, ${m10.toFixed(6)}, ${m20.toFixed(6)}, 0, ${m01.toFixed(6)}, ${m11.toFixed(6)}, ${m21.toFixed(6)}, 0, ${m02.toFixed(6)}, ${m12.toFixed(6)}, ${m22.toFixed(6)}, 0, 0, 0, 0, 1)`;
 }
 
-const DEFAULT_QUAT = eulerToQuat(-22, 35); // Default front view (Top, Front, Right)
+const DEFAULT_QUAT = eulerToQuat(-14, 20); // Front face (TARZZAN T logo) facing user more directly
 let cubeQuat = [...DEFAULT_QUAT];
 let moved = false;
 
@@ -79,9 +79,9 @@ let moved = false;
 let pieceDrag = null;
 
 const VIEW_PRESETS = {
-  front: { rx: -22, ry: 35 },   // 上・前・右
-  back: { rx: 22, ry: 215 },  // 下・後・左
-  top: { rx: -85, ry: 0 },    // 正上面 ADP
+  front: { rx: -14, ry: 20 },   // 正面偏向使用者（T logo 更加正對螢幕）
+  back: { rx: 14, ry: 200 },    // 下・後・左
+  top: { rx: -85, ry: 0 },      // 正上面 ADP
   bottom: { rx: 85, ry: 0 },    // 正底面 WOOCHAN
 };
 
